@@ -22,7 +22,7 @@ A visual workflow builder. You draw a graph of nodes (trigger, transform, HTTP r
 ## Status
 | Phase | What | Owner | Status |
 |---|---|---|---|
-| 1 | Setup, scaffold, database | both | not started |
+| 1 | Setup, scaffold, database | both | done (verified) |
 | 2 | Graph logic: validation, cycle detection, topological order | Nikhil | not started |
 | 3 | Flow API + visual editor | Madhav (API), Nikhil (editor) | not started |
 | 4 | Execution engine + run history | Nikhil (engine), Madhav (history) | not started |
@@ -34,7 +34,51 @@ A visual workflow builder. You draw a graph of nodes (trigger, transform, HTTP r
 Not planned (documented as future work): workflow versioning, SSRF protection, full load-test report, Condition node (may be added if time allows).
 
 ## Run locally
-_Filled in during Phase 1 and kept up to date._
+
+### Prerequisites
+- Node.js LTS (v20+ or v24+)
+- Docker Desktop (WSL2 backend enabled on Windows)
+
+### 1. Start Postgres & Redis containers
+From repository root in PowerShell:
+```powershell
+docker compose up -d
+```
+> **Tip:** If Docker is not available, you can use free cloud services (Neon for PostgreSQL and Upstash for Redis) by updating `DATABASE_URL` and `REDIS_URL` in `backend/.env`.
+
+### 2. Setup and run Backend API
+In a new PowerShell window:
+```powershell
+cd backend
+npm install
+npx prisma migrate dev
+npm run dev
+```
+The backend API starts at `http://localhost:4000`. Test health with:
+```powershell
+Invoke-RestMethod -Uri http://localhost:4000/health
+```
+
+To run backend tests:
+```powershell
+cd backend
+npm test
+```
+
+To inspect database records visually in your browser:
+```powershell
+cd backend
+npx prisma studio
+```
+
+### 3. Setup and run Frontend
+In another PowerShell window:
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+Open your browser at `http://localhost:5173` to see the Dormammu Loop interface and live backend status indicator.
 
 ## Documentation
 - Start here: [docs/00-start-here.md](docs/00-start-here.md)

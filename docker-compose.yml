@@ -1,0 +1,43 @@
+# The Dormammu Loop - Local Infrastructure
+# Runs PostgreSQL (database) and Redis (queue/cache)
+#
+# If Docker is unavailable on your machine, you can use free cloud services instead:
+# - PostgreSQL: create a free database at https://neon.tech and copy the connection string into backend/.env (DATABASE_URL)
+# - Redis: create a free database at https://upstash.com and copy the Redis URL into backend/.env (REDIS_URL)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dormammu_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dormammu
+      POSTGRES_PASSWORD: dormammupassword
+      POSTGRES_DB: dormammu_loop
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dormammu -d dormammu_loop"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dormammu_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

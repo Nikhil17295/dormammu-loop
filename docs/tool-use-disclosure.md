@@ -15,5 +15,5 @@ WEBSTER requires a tool-use disclosure. Keep this file honest and current. Fill 
 ## Per-phase log
 | Phase | Tool | What it generated | What we checked / changed |
 |---|---|---|---|
-| 1 | | | |
+| 1 | Antigravity | Docker compose file, Express backend scaffold with TypeScript & Prisma schema (8 models), Vite + React + Tailwind frontend with health status page, and Vitest suite | Verified Docker containers (Postgres & Redis), verified Prisma migrations applied all 8 tables, ran backend test suite, built frontend without warnings |
 | 2 | | | |
