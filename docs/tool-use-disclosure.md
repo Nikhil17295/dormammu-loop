@@ -16,4 +16,5 @@ WEBSTER requires a tool-use disclosure. Keep this file honest and current. Fill 
 | Phase | Tool | What it generated | What we checked / changed |
 |---|---|---|---|
 | 1 | Antigravity | Docker compose file, Express backend scaffold with TypeScript & Prisma schema (8 models), Vite + React + Tailwind frontend with health status page, and Vitest suite | Verified Docker containers (Postgres & Redis), verified Prisma migrations applied all 8 tables, ran backend test suite, built frontend without warnings |
-| 2 | | | |
+| 2 | Antigravity | Pure TypeScript engine types (`backend/src/engine/types.ts`), graph algorithms with Kahn's sort, 3-color DFS cycle isolation, readiness calculator, validator (`backend/src/engine/graph.ts`), 33-case Vitest suite (`backend/tests/graph.test.ts`), and Study Guide 02 | Verified 0 external imports in engine, ran all 34 Vitest tests passing with 0 failures, tested tsc build, verified deterministic tie-breaking and cycle isolation |
+| 3 | | | |

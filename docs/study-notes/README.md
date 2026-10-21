@@ -13,7 +13,7 @@ Refer to [`docs/team-split.md`](../team-split.md) for full details.
 | Guide | Topic | Primary Owner | Status |
 |---|---|---|---|
 | [`01-setup-and-infra.md`](./01-setup-and-infra.md) | Docker, PostgreSQL, Redis, Prisma, Express, Vite, CORS | **Both** | Complete |
-| [`02-dag-and-algorithms.md`](./02-dag-and-algorithms.md) | Graph theory, Kahn's algorithm, cycle isolation, readiness | **Nikhil** | Phase 2 |
+| [`02-dag-and-algorithms.md`](./02-dag-and-algorithms.md) | Graph theory, Kahn's algorithm, cycle isolation, readiness | **Nikhil** | Complete |
 | [`03-flow-api-and-canvas.md`](./03-flow-api-and-canvas.md) | Flow CRUD API, Zod schemas, React Flow visual editor | **Madhav (API) / Nikhil (Canvas)** | Phase 3 |
 | [`04-execution-engine.md`](./04-execution-engine.md) | In-process runner, safe templating, cascading skips, run history | **Nikhil (Engine) / Madhav (History)** | Phase 4 |
 | [`05-triggers-and-idempotency.md`](./05-triggers-and-idempotency.md) | Webhooks, tokens, idempotency deduplication, `node-cron` | **Madhav** | Phase 5 |
