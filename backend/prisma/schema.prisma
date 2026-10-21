@@ -1,0 +1,103 @@
+// Prisma schema for The Dormammu Loop
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Flow represents a saved DAG workflow definition
+model Flow {
+  id        String    @id @default(uuid())
+  name      String
+  graph     Json      // Stores nodes and edges definition
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  triggers  Trigger[]
+  runs      Run[]
+}
+
+// Trigger defines how a flow is initiated (webhook token or cron schedule)
+model Trigger {
+  id        String   @id @default(uuid())
+  flowId    String
+  flow      Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  type      String   // "webhook" | "cron"
+  token     String?  // Webhook security token
+  cronExpr  String?  // e.g. "*/5 * * * *"
+  enabled   Boolean  @default(true)
+}
+
+// Run represents a single execution of an entire workflow
+model Run {
+  id            String    @id @default(uuid())
+  flowId        String
+  flow          Flow      @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  status        String    @default("pending") // pending | running | success | failed
+  triggerSource String    // "manual" | "webhook" | "cron"
+  payload       Json?     // Trigger input payload
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  nodeRuns      NodeRun[]
+}
+
+// NodeRun represents the execution of an individual node inside a workflow run
+model NodeRun {
+  id             String        @id @default(uuid())
+  runId          String
+  run            Run           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  nodeId         String        // ID of node in the flow graph
+  status         String        @default("pending") // pending | queued | running | success | failed | retrying | skipped | dead
+  attempt        Int           @default(0)
+  input          Json?
+  output         Json?
+  error          String?
+  idempotencyKey String        @unique
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  logs           LogLine[]
+  deadLetters    DeadLetter[]
+}
+
+// LogLine stores execution logs streamed or captured per node run
+model LogLine {
+  id        String   @id @default(uuid())
+  nodeRunId String
+  nodeRun   NodeRun  @relation(fields: [nodeRunId], references: [id], onDelete: Cascade)
+  ts        DateTime @default(now())
+  level     String   @default("info") // info | warn | error
+  message   String
+}
+
+// DeadLetter stores jobs that permanently failed after all retries were exhausted
+model DeadLetter {
+  id        String   @id @default(uuid())
+  nodeRunId String
+  nodeRun   NodeRun  @relation(fields: [nodeRunId], references: [id], onDelete: Cascade)
+  reason    String
+  attempts  Int
+  payload   Json?
+  createdAt DateTime @default(now())
+}
+
+// IdempotencyRecord prevents duplicate execution of incoming webhook events or jobs
+model IdempotencyRecord {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  runId     String
+  createdAt DateTime @default(now())
+}
+
+// WorkerHeartbeat tracks active worker processes and their current task
+model WorkerHeartbeat {
+  workerId    String   @id
+  lastSeen    DateTime @default(now())
+  currentTask String?
+}
