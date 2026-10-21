@@ -1,49 +1,91 @@
-# 01. The big picture
+# 01. The Big Picture
 
-## Web basics you need (5 minutes)
-- **Frontend:** what runs in the browser (our React app, the canvas).
-- **Backend / API:** a program on a server that the frontend talks to over HTTP (our Express app). It stores data and does the real work.
-- **Database:** where data lives permanently (PostgreSQL). **Prisma** is a tool that lets TypeScript code talk to it.
-- **Redis:** a very fast in-memory store. We use it as a to-do list for workers (a queue) and as a message channel.
-- **Worker:** a separate program that takes jobs from the queue and does them.
+## Web Basics for Beginners (5 Minutes)
+- **Frontend:** What runs inside the browser (our React 18 application and React Flow visual canvas).
+- **Backend / API:** The Node.js Express server that accepts requests, validates workflows, stores data, and coordinates execution.
+- **Database:** Where records live permanently (PostgreSQL). **Prisma** is our ORM (Object-Relational Mapping tool) that allows TypeScript code to query the database safely.
+- **Redis:** An ultra-fast in-memory data store used in Phase 6 as a BullMQ task queue and in Phase 7 as a real-time Pub/Sub message broker.
+- **Worker:** A background Node.js process that pulls jobs from Redis and executes them independently of the web API.
 
-## What the project does in one paragraph
-You draw a graph in the browser. It is saved through the API into the database. When something **triggers** a run (you click Run, a webhook arrives, or a cron time hits), the server creates a **Run** record and works out which nodes may start. Each node is a job on the Redis queue; workers do the jobs and save the results in the database. As things happen, live events are pushed to the browser (SSE) so the canvas updates.
+---
 
-## Picture
+## Two-Tier Strategy: Pass Tier First, Then Distributed Tier
+To guarantee that you finish a complete, high-scoring project on time, the architecture is split into two distinct tiers:
+
+### Tier 1: The Pass Tier (Phases 1 through 5)
+- **Goal:** A complete, working product that judges can see and test end-to-end.
+- **How it runs:** In-process inside Express using asynchronous Node.js concurrency (`Promise.all`).
+- **Capabilities:**
+  1. Draw workflow graphs in React Flow.
+  2. Validate DAGs and reject cycles (Kahn's algorithm).
+  3. Save workflows to PostgreSQL via Prisma.
+  4. Execute workflows manually or via webhooks and cron schedules.
+  5. Inspect step-by-step inputs, outputs, errors, and logs in the UI.
+- **Guarantee:** Even if you run out of time before completing the distributed tier, **your project is 100% complete, fully functional, and earns the baseline pass grade.**
+
+### Tier 2: The Distributed Tier (Phases 6 and 7)
+- **Goal:** Production-grade scalability and reliability.
+- **How it runs:** Node tasks are offloaded to Redis BullMQ worker processes.
+- **Capabilities:**
+  1. Parallel worker pools.
+  2. Automatic retries with exponential backoff and full jitter.
+  3. Dead-Letter Queue (DLQ) with one-click failure replay.
+  4. Real-time canvas updates streamed over Server-Sent Events (SSE).
+
+---
+
+## Architecture Flow Diagram
+
 ```
-Browser (React + React Flow)
-   |  save flow, run, view history         ^ live events (SSE)
-   v                                       |
-Express API ------------------------> Redis (pub/sub for events)
-   |   create Run, queue ready nodes        ^
-   v                                        |
-Redis queue (BullMQ) ---> Workers ----------+
-                            | run node, retry
-                            v
-                       PostgreSQL (flows, runs, node runs, logs, dead letters)
-
-Cron timer and Webhook URL --> both call the same "create run" function
+[ Browser: React + React Flow Canvas ]
+       |                              ^
+       | HTTP (Save / Run / History)   | Live Events (SSE)
+       v                              |
+[ Express API Server ] -------------> [ Redis Pub/Sub ]
+       |                                      ^
+       |-- (Pass Tier: in-process runner)     |
+       |                                      |
+       |-- (Distributed Tier: enqueue job)    |
+       v                                      |
+[ BullMQ Redis Queue ] --> [ Worker Processes ]
+       |                              |
+       +------------------------------+
+                      |
+                      v (Store flows, runs, logs, dead letters)
+             [ PostgreSQL Database ]
 ```
 
-## The key ideas (memorise these five)
-1. **The database is the truth.** Redis can be wiped; history must survive.
-2. **A node runs only when all its parents succeeded.**
-3. **Manual, webhook and cron all use one function to start a run.**
-4. **A job can be delivered twice** (a crash, a retry), so the work must be safe to repeat (idempotency).
-5. **Failures are recorded, not hidden:** retries, then a dead-letter queue.
+---
 
-## Tables (simple version)
-- **Flow:** name, the graph (nodes and edges as JSON)
-- **Run:** which flow, status, the trigger payload, start/end time
-- **NodeRun:** one row per node per run: status, attempt number, input, output, error, times
-- **LogLine:** log messages per node run
-- **DeadLetter:** jobs that failed after all retries
-- **Trigger:** webhook token or cron expression for a flow
-- **IdempotencyRecord:** keys to ignore duplicate webhook deliveries
-- **WorkerHeartbeat:** which workers are alive
+## The 5 Core Principles (Memorize These for Your Viva)
+1. **The database is the single source of truth:** Redis is temporary transport; all flow definitions, run history, and logs survive permanently in PostgreSQL.
+2. **A node runs only when all its parent dependencies succeed:** Diamond joins wait for both incoming branches to reach `success`.
+3. **Unified execution entrypoint:** Manual runs, webhook triggers, and cron timers all route through the same `createRun()` function.
+4. **Idempotency over exactly-once:** Distributed networks can deliver duplicate messages; workflows remain safe because identical idempotency keys ignore repeat executions.
+5. **Failures are surfaced, not hidden:** Failing nodes cascade `skipped` status to downstream children, retry with jitter, and park in a Dead-Letter Queue for human inspection.
 
-## Statuses
-Run: `pending, running, success, failed`
-NodeRun: `pending, queued, running, success, failed, retrying, skipped, dead`
-`skipped` means a parent failed so this node never ran. `dead` means retries ran out.
+---
+
+## The 8 Database Models (Quick Reference)
+- **`Flow`:** Saved workflow definition with name and JSON graph (nodes + edges).
+- **`Trigger`:** Webhook token or cron expression linked to a flow.
+- **`Run`:** Top-level workflow execution instance (status, payload, timestamps).
+- **`NodeRun`:** Individual node execution record within a run (input, output, status, error, attempt).
+- **`LogLine`:** Timestamped console log emitted during a node's execution.
+- **`DeadLetter`:** Permanently failed job captured after retries are exhausted.
+- **`IdempotencyRecord`:** Keys used to deduplicate incoming webhook payloads and prevent duplicate runs.
+- **`WorkerHeartbeat`:** Liveness tracker recording active worker IDs and timestamps.
+
+---
+
+## Status State Machine
+- **Run Statuses:** `pending` -> `running` -> `success` | `failed`
+- **NodeRun Statuses:**
+  - `pending`: Waiting for parent nodes to finish.
+  - `queued`: Enqueued in Redis/BullMQ waiting for an available worker.
+  - `running`: Currently executing.
+  - `success`: Execution completed successfully.
+  - `retrying`: Failed retryable error; waiting for backoff delay.
+  - `skipped`: An upstream parent node failed; this node was bypassed.
+  - `dead`: Retries exhausted; quarantined in the Dead-Letter Queue.
+  - `failed`: Terminal failure in in-process mode.

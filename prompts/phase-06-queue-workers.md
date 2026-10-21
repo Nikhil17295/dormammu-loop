@@ -1,26 +1,119 @@
-# Phase 6: BullMQ workers, retries, DLQ, idempotency, heartbeats (Day 4, Nikhil)
+# Phase 6: Distributed BullMQ Workers, Retries with Jitter, DLQ, & Heartbeats (Day 4)
 
-**Read first:** `docs/05-queue-workers-reliability.md`. **Give the agent:** master rules + this file. **Only start this if the Pass tier works.** Redis must be running.
+**Read first:** `docs/05-queue-workers-reliability.md`  
+**Give the agent:** `prompts/00-master-rules.md` + this file.  
+*(Safety Rule: Do NOT start this phase unless the Pass Tier [Phases 1 through 5] is fully verified and working).*
+
+---
 
 ## Goal
-Move node execution out of the API into separate worker processes, and make failures survivable.
+Transform the in-process execution engine into a resilient, production-ready distributed system:
+- Work is executed by separate Node.js worker processes via **BullMQ** and **Redis**.
+- Transient failures automatically retry using **exponential backoff with full jitter**.
+- Exhausted retries are captured in a **Dead-Letter Queue (DLQ)** with manual replay capability.
+- Worker liveness is tracked via **heartbeats** in PostgreSQL.
 
-## Tasks
-1. `backend/src/workers/queue.ts` (BullMQ Queue `node-jobs`, ioredis connection) and `workers/worker.ts` (a separate entry: `npm run worker`) with a configurable concurrency.
-2. Setting `EXECUTION_MODE=inline|distributed`. Inline keeps the Phase 4 behaviour (so tests still work). Distributed: `createRun` creates NodeRuns then calls `advanceRun(runId)`.
-3. `advanceRun(runId)`: inside a Prisma transaction, compute ready nodes with `readyNodes`, set them `queued`, add one BullMQ job each (jobId = the idempotency key `runId:nodeId`), mark descendants of failures `skipped`, and finish the Run when nothing is left. It must be safe if called at the same time by two workers (a join node must not be queued twice).
-4. Worker job handler: **claim** the NodeRun with an atomic update (`updateMany` where status is `queued`; if 0 rows updated, skip). Run the executor, save the result, call `advanceRun`. If the node is already `success`, return the stored output.
-5. **Retries:** per-node config `maxRetries` (default 3), `backoffBase` (default 2s), `backoffCap` (default 60s). Write a pure function `computeBackoff(attempt, base, cap, rng)` with **full jitter** (`random * min(cap, base * 2^attempt)`) and a custom BullMQ backoff strategy that uses it (check the BullMQ docs for your installed version). Only retry retryable errors: timeouts, network errors, HTTP 5xx, 429. HTTP 4xx and config errors fail immediately. Save `attempt` and log each retry with the next delay; NodeRun status `retrying`.
-6. **DLQ:** when retries are exhausted: NodeRun `dead`, insert a `DeadLetter` row (error, attempts, payload), descendants `skipped`, Run `failed`. API: `GET /dlq`, `POST /dlq/:id/replay` (reset that node and its skipped descendants to pending, re-run), `DELETE /dlq/:id`. Frontend: a simple DLQ page with a Replay button.
-7. **Heartbeats:** each worker upserts a `WorkerHeartbeat` row (id, lastSeen, currentTask) every 5s. `GET /workers` lists workers and marks as `dead` any silent for over 15s. A small Workers panel in the frontend. Rely on BullMQ's stalled-job recovery for re-delivering a crashed worker's job; note this in the report.
-8. A demo flow that calls `https://httpbin.org/status/503` to show retries then DLQ.
-9. `docker-compose` or npm scripts so that `npm run worker` can be started in 2 or 3 terminals.
-10. Tests: backoff stays within bounds (seeded rng), 4xx is not retried, 503 retries N times then goes dead, duplicate delivery runs the executor once, a join node is queued once.
+**Preservation Principle:** An environment variable `EXECUTION_MODE=inline|distributed` (defaulting to `inline` in tests or local fallback) preserves the Phase 4 runner so unit tests and simple setups never break.
 
-## Checklist
-- [ ] Two or three workers handle parallel branches at the same time (visible in logs)
-- [ ] A failing node retries with growing, random delays, then appears in the DLQ and the run is `failed`
-- [ ] Replay from the UI re-runs the dead node and its descendants
-- [ ] Killing a worker mid-job: the job is picked up by another worker and the run still completes (try it)
-- [ ] `/workers` shows live heartbeats
-- [ ] Tests pass
+---
+
+## Required Tasks & Specifications
+
+### 1. Redis Connection & BullMQ Queue Setup (`backend/src/workers/queue.ts`)
+- Connect to Redis using `ioredis` (reading `REDIS_URL` from `.env`).
+- Instantiate BullMQ Queue named `node-jobs`.
+- Export a helper `addNodeJob(nodeRunId: string, runId: string, nodeId: string)` with:
+  - Custom `jobId: `${runId}:${nodeId}`` to enforce BullMQ deduplication.
+  - Configurable attempts and custom backoff strategy.
+
+### 2. Concurrency-Safe DAG Advancement (`backend/src/engine/advance.ts`)
+- Implement `advanceRun(runId: string): Promise<void>`:
+  - Must run within a Prisma transaction or with atomic checks to be safe against concurrent worker completions (e.g. when two parallel nodes finish at the exact same millisecond).
+  - Queries all `NodeRun` rows for the run.
+  - Computes ready nodes using `readyNodes(graph, statusByNodeId)`.
+  - Atomically updates ready nodes from `'pending'` to `'queued'`.
+  - Pushes a BullMQ job for each newly queued node.
+  - If any node has status `'failed'` or `'dead'`, mark all its unexecuted descendants as `'skipped'`.
+  - If all nodes are in terminal states (`success`, `failed`, `skipped`, `dead`), mark the `Run` record finished with its final status (`success` or `failed`).
+
+### 3. Worker Process & Atomic Job Claiming (`backend/src/workers/worker.ts`)
+- Dedicated worker process entry point started via `npm run worker` (in `backend/package.json`).
+- Worker concurrency configurable via `WORKER_CONCURRENCY` (default 3).
+- **Atomic Claim Pattern:**
+  - Before executing a job, perform an atomic update:
+    ```typescript
+    const updated = await prisma.nodeRun.updateMany({
+      where: { id: nodeRunId, status: 'queued' },
+      data: { status: 'running', startedAt: new Date() }
+    });
+    if (updated.count === 0) return; // Another worker already claimed it!
+    ```
+  - Fetch executor for node type, execute, record output/error in PostgreSQL.
+  - If successful: mark `status = 'success'`, save output, and call `advanceRun(runId)`.
+  - If failed: throw error to trigger BullMQ's retry mechanism or DLQ handling.
+
+### 4. Exponential Backoff with Full Jitter (`backend/src/engine/backoff.ts`)
+- Pure function:
+  ```typescript
+  export function computeBackoff(attempt: number, baseMs = 2000, capMs = 60000, rng = Math.random): number {
+    const exponential = Math.min(capMs, baseMs * Math.pow(2, attempt));
+    return Math.floor(rng() * exponential);
+  }
+  ```
+- Register a custom backoff strategy with BullMQ Worker.
+- Classify errors:
+  - **Retryable errors:** Network timeouts, HTTP 500/502/503/504, HTTP 429 Rate Limited.
+  - **Non-retryable errors:** HTTP 400/401/403/404, invalid configuration, schema errors (fail immediately without wasting retries).
+- On each retry: update `NodeRun.attempt`, set status `'retrying'`, log the scheduled backoff delay.
+
+### 5. Dead-Letter Queue (DLQ) & Replay (`backend/src/api/dlq.ts`)
+- When a node exhausts its maximum retries (default 3):
+  - Mark `NodeRun.status = 'dead'`.
+  - Insert record into `DeadLetter` table (`nodeRunId`, `reason`, `attempts`, `payload`).
+  - Mark all its downstream descendants as `'skipped'`.
+  - Call `advanceRun(runId)` to finalize the Run as `'failed'`.
+- DLQ API endpoints:
+  - `GET /dlq`: Returns paginated list of dead letters with flow and node information.
+  - `POST /dlq/:id/replay`: Re-queues the dead node:
+    - Resets the `NodeRun` status from `'dead'` back to `'pending'` (attempt reset to 0).
+    - Resets all its `'skipped'` descendants back to `'pending'`.
+    - Calls `advanceRun(runId)` to resume workflow execution.
+  - `DELETE /dlq/:id`: Dismisses/acknowledges the dead letter.
+- Frontend DLQ Dashboard (`frontend/src/pages/DlqPage.tsx`):
+  - Table of failed jobs with error reason, flow name, failure timestamp, and a **"Replay"** action button.
+
+### 6. Worker Heartbeats & Liveness Monitoring (`backend/src/workers/heartbeat.ts`)
+- Each running worker generates a unique `workerId` on startup (e.g. `worker-abc123`).
+- Interval every 5 seconds upserts into `WorkerHeartbeat` table (`workerId`, `lastSeen: new Date()`, `currentTask`).
+- On graceful shutdown (`SIGTERM`/`SIGINT`), remove heartbeat row.
+- Endpoint `GET /workers`:
+  - Returns all registered workers.
+  - If `now - lastSeen > 15s`, marks status as `'stale'` or `'dead'`.
+- Small Worker Status drawer or panel in the frontend showing active worker count.
+
+### 7. Automated Tests (`backend/tests/workers.test.ts`)
+- Pure unit tests for `computeBackoff` (deterministic with seeded RNG).
+- Error classification tests: 404 is not retried; 503 triggers retry.
+- Distributed lock/atomic claim test: verifying two workers cannot claim the same node run.
+- DLQ replay test: dead letter resets node and skipped children to pending.
+
+---
+
+## Verification Checklist
+- [ ] Worker process runs via `npm run worker` in a separate PowerShell window.
+- [ ] Two or three worker processes concurrently process parallel branches of a diamond flow (verified in worker terminal logs).
+- [ ] A flow with a failing HTTP endpoint (`https://httpbin.org/status/503`) retries with exponential backoff and jitter.
+- [ ] After 3 failed attempts, the node is marked `dead` and appears in `GET /dlq` and on the DLQ frontend page.
+- [ ] Clicking **Replay** in the DLQ UI resets the dead node and resumes execution.
+- [ ] Terminating a worker mid-job is recovered and displayed as dead in `GET /workers`.
+- [ ] All tests pass: `cd backend; npm test`.
+
+---
+
+## Beginner Viva Preparation for Phase 6
+1. **Why use Redis + BullMQ instead of running everything inside the Express server?**  
+   *Answer:* Decoupling. If a node performs heavy processing or makes a slow HTTP request, the Express API stays fast and responsive. Furthermore, if a worker crashes, the job is not lost—it remains safely in Redis and can be picked up by another worker.
+2. **What is exponential backoff with "jitter" and why is jitter important?**  
+   *Answer:* Exponential backoff doubles the wait time between retries (\(2s, 4s, 8s, 16s\)). Jitter introduces randomness (\(random \times delay\)). Without jitter, if an external service goes down and 100 failed jobs retry at the exact same second, they cause a "thundering herd" that crashes the service again.
+3. **What is the difference between at-least-once delivery and exactly-once execution?**  
+   *Answer:* Distributed message queues can guarantee that a job is delivered *at least once*, but network partitions or worker crashes might deliver it a second time. We achieve *safe execution* by pairing at-least-once delivery with **idempotency keys** and **atomic status claims** so duplicate deliveries are ignored.
