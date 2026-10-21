@@ -88,10 +88,24 @@ Open your browser at `http://localhost:5173` to see the Dormammu Loop interface 
 
 ## Repo layout
 ```
-backend/    Express API, engine, workers
-frontend/   React + React Flow UI
-docs/       study notes and project docs
-prompts/    phase prompts for the AI coding agent
+backend/
+  src/
+    api/        # Express app, middleware, routes, request validation
+    engine/     # Pure DAG logic: validation, Kahn's algorithm, readyNodes, runner
+    executors/  # Node executors (trigger, http, transform, delay, output)
+    workers/    # BullMQ worker processes, job handlers (Phase 6)
+    triggers/   # Webhook handler, node-cron scheduler (Phase 5)
+    lib/        # Prisma client, Redis client, event publisher, logger
+  prisma/       # schema.prisma, migrations
+  tests/        # Vitest automated test suites
+frontend/
+  src/
+    pages/      # Route pages (Home/List, Editor, RunDetail, DLQ)
+    components/ # Reusable UI components, custom React Flow nodes
+    api/        # Typed API client fetching backend endpoints
+    hooks/      # React hooks (health, flow state, run stream)
+docs/           # Architecture notes, viva prep, progress log
+prompts/        # Master rules and phase prompts for AI coding agent
 ```
 
 ## Known limitations
