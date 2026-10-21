@@ -43,6 +43,15 @@ Keep this file bookmarked: whenever you run into an unexpected error, look here 
 - **Root Cause:** In simple cycle algorithms, reaching Node D twice makes the algorithm think there is a cycle.
 - **Fix:** Reaching a node via multiple independent paths is **valid fan-in**, not a cycle. A cycle only occurs if a path leads back to an ancestor. Kahn's in-degree count accurately handles this: D's in-degree is 2; it only runs when *both* B and C finish.
 
+### Bug 2.4: Trigger Nodes Receiving Incoming Edges
+- **Symptom:** Workflow engine triggers execution loops or gets confused about what kicked off the workflow.
+- **Root Cause:** A user connects an upstream task into a `trigger` node. By definition, a trigger represents an external event (webhook or cron), not an internal step.
+- **Fix:** `validateGraph` checks every trigger node and enforces `in-degree === 0` (`TRIGGER_HAS_INCOMING_EDGES`).
+
+### Bug 2.5: Dangling Edges and Duplicate IDs Poisoning In-Degree Maps
+- **Symptom:** Kahn's algorithm counts in-degrees for deleted or phantom nodes, causing topological sort to incorrectly report cycles or crash with `undefined` map access.
+- **Fix:** Filter graph edges to ensure `source` and `target` both exist in `graph.nodes`. Report `DANGLING_EDGE` and `DUPLICATE_NODE_IDS` before cycle detection runs.
+
 ---
 
 ## 3. Visual Canvas & React Flow Traps (Phase 3)
