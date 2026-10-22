@@ -69,6 +69,21 @@ Keep this file bookmarked: whenever you run into an unexpected error, look here 
 - **Root Cause:** Missing React Flow base stylesheet.
 - **Fix:** Verify `frontend/src/index.css` imports `@import "@xyflow/react/dist/style.css";` at the very top.
 
+### Bug 3.3: Canvas Node Types Recreated on Every Render (Flickering & Focus Loss)
+- **Symptom:** Typing into an input field inside an Inspector panel causes inputs to lose focus or nodes to flash on every keystroke.
+- **Root Cause:** Declaring `const nodeTypes = { trigger: TriggerNode, ... }` inline within a React component. React Flow detects a new object reference on every render and unmounts/remounts all canvas nodes.
+- **Fix:** Declare `nodeTypes` **outside** the React component scope or memoize with `useMemo`.
+
+### Bug 3.4: Coordinate Disconnect in Drag & Drop from Palette
+- **Symptom:** Dragging a node card from the left palette and dropping it on the canvas results in the node appearing hundreds of pixels away from where the cursor dropped.
+- **Root Cause:** Raw DOM `event.clientX` and `event.clientY` coordinates are relative to the viewport window and do not account for React Flow's canvas pan and zoom scale.
+- **Fix:** Use React Flow's `screenToFlowPosition({ x: event.clientX, y: event.clientY })` from `useReactFlow()` to convert screen-space pixels into internal graph coordinates.
+
+### Bug 3.5: Attempting to Add Inward Edges to Triggers
+- **Symptom:** User tries to wire an HTTP node output into a Trigger node input.
+- **Root Cause:** Triggers represent the root of execution (in-degree 0).
+- **Fix:** Do not render an input `Handle` (`type="target"`) on `TriggerNode` at all, and reject any programmatic connection attempt in `canConnectEdge`.
+
 ---
 
 ## 4. Execution Engine & Templating Gotchas (Phase 4)

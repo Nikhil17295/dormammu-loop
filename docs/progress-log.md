@@ -41,3 +41,29 @@ After each phase add a few lines documenting actual implementation progress.
   - How 3-color DFS isolates the exact circular back-edge without falsely flagging valid diamond fan-in joins.
 - **Still unclear / Next focus:**
   - Phase 3: Exposing the graph validator in Express REST endpoints and building the interactive React Flow canvas.
+
+---
+
+## Phase 3: Visual Canvas Workflow Editor & Client-Side Cycle Rejection (2026-10-22) by Nikhil (Part B)
+- **Built:**
+  - Pure client-side graph engine in `frontend/src/engine/` (`types.ts`, `graph.ts`, `index.ts`) providing zero-latency in-browser Kahn's topological sort, DFS cycle isolation, validation, and real-time edge connection validation (`canConnectEdge`).
+  - 5 custom React Flow nodes (`trigger`, `http`, `transform`, `delay`, `output`) styled with Tailwind CSS dark themes, custom handles, status icons, and configuration previews.
+  - Omitted input handle on Trigger node to make incoming dependencies structurally impossible on the canvas.
+  - Interactive Node Palette (`NodePalette.tsx`) supporting both single-click node placement and HTML5 drag-and-drop onto canvas coordinates via `screenToFlowPosition`.
+  - Inspector Slide-Over Panel (`InspectorPanel.tsx`) with typed inputs, live JSON headers validation, template syntax guides, delay sliders, and real-time node state synchronization.
+  - Zero-latency client-side cycle rejection in React Flow's `onConnect` and `isValidConnection`: rejects self-loops and multi-node cycles immediately, flashing warning toasts with the exact cycle loop path.
+  - Canvas Action Bar (`CanvasActionBar.tsx`) with inline workflow naming, starter template dropdown (E-Commerce Pipeline, Diamond Branching, Delayed Webhook), Validate button, Save button, and Phase 4 Run button placeholder.
+  - Multi-page routing with `react-router-dom`: `/` (Flow List dashboard with search, node counts, and delete actions), `/flows/new` (Visual Canvas builder with starter template), `/flows/:id` (Visual Canvas loader), and `/health` (system scaffold health check).
+  - Resilient Client API layer in `frontend/src/api/flows.ts` fetching backend `/flows` REST endpoints with automatic offline `localStorage` fallback persistence.
+  - Vitest automated test suite in `frontend/src/tests/` (15 passing tests across `graphEngine.test.ts` and `api.test.ts`).
+  - Study Guide `docs/study-notes/03-flow-api-and-canvas.md` covering architecture trade-offs, file breakdowns, PowerShell debugging toolkit, and 5 viva Q&As.
+- **What broke and how it was fixed:**
+  - Vitest failed with `ReferenceError: localStorage is not defined` in test environment; defined in-memory mock storage on `globalThis.localStorage`.
+  - TypeScript compiler error `Cannot find name 'global'`; replaced Node-specific `global` with universal `globalThis`.
+  - Static analysis warned of unused `Play` import; cleaned up imports in `FlowListPage.tsx`.
+- **What I learned:**
+  - How React Flow reconciles custom nodes via `nodeTypes` and why declaring `nodeTypes` outside component scope prevents focus loss and node re-mounting.
+  - How to project browser viewport drag coordinates into canvas internal space using `screenToFlowPosition`.
+  - How client-side DFS back-edge detection provides instant UX feedback before edges are committed to React state.
+- **Still unclear / Next focus:**
+  - Madhav's Part A backend flow persistence API (`backend/src/api/flows.ts`, Zod schemas, integration tests) to connect canvas saves directly to PostgreSQL.
