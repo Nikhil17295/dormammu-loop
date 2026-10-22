@@ -41,3 +41,25 @@ After each phase add a few lines documenting actual implementation progress.
   - How 3-color DFS isolates the exact circular back-edge without falsely flagging valid diamond fan-in joins.
 - **Still unclear / Next focus:**
   - Phase 3: Exposing the graph validator in Express REST endpoints and building the interactive React Flow canvas.
+
+---
+
+## Phase 3: Flow Persistence API & Graph Validation (2026-10-22) by Madhav
+- **Built:**
+  - Runtime request validation schemas in `backend/src/api/schemas.ts` using Zod for `Flow` create, update, graph structure, and dry-run validation payloads.
+  - Complete RESTful Flow API routes in `backend/src/api/flows.ts` (`GET /flows`, `POST /flows`, `GET /flows/:id`, `PUT /flows/:id`, `DELETE /flows/:id`, and `POST /flows/validate`).
+  - Integrated pure DAG validation (`validateGraph`) into flow creation and updates, rejecting cyclic graphs with semantic HTTP 422 Unprocessable Content.
+  - Mounted routes onto Express at `/flows` in `backend/src/api/app.ts`.
+  - Comprehensive Vitest + Supertest integration test suite in `backend/tests/flows.test.ts` with 20 integration tests verifying CRUD, cycle rejection, cascade deletion, and error codes (54 total backend tests passing).
+  - Strongly typed client API functions in `frontend/src/api/flows.ts` (`fetchFlows`, `fetchFlow`, `createFlow`, `updateFlow`, `deleteFlow`, `validateGraphApi`).
+  - Study notes guide in `docs/study-notes/03-flow-api-and-persistence.md` with viva Q&As, PowerShell debugging toolkit, and beginner analogies.
+- **What broke and how it was fixed:**
+  - When testing `POST /flows/validate` with `{ invalid: "not a graph" }`, the test expected HTTP 400 but received HTTP 200 because `nodes` and `edges` were configured with `.default([])` in Zod; fixed by requiring explicit array types in `graphSchema`.
+  - Ensured static route `POST /flows/validate` is registered before dynamic `:id` routes to prevent Express route shadowing.
+- **What I learned:**
+  - Why runtime validation (Zod) is essential in Node.js despite having compile-time TypeScript types.
+  - The semantic distinction between HTTP 400 (syntactical client error) and HTTP 422 (semantic/DAG domain constraint violation).
+  - How Prisma foreign key relations with `onDelete: Cascade` keep PostgreSQL clean when workflows are deleted.
+- **Still unclear / Next focus:**
+  - Nikhil builds the React Flow canvas visual editor (`@xyflow/react`) in Phase 3 Part B, consuming these `/flows` endpoints.
+

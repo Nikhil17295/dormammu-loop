@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import { flowsRouter } from "./flows";
 
 export const app = express();
 
@@ -19,3 +20,7 @@ app.use(
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
+
+// Flow persistence and validation routes
+app.use("/flows", flowsRouter);
+

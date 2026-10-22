@@ -69,6 +69,21 @@ Keep this file bookmarked: whenever you run into an unexpected error, look here 
 - **Root Cause:** Missing React Flow base stylesheet.
 - **Fix:** Verify `frontend/src/index.css` imports `@import "@xyflow/react/dist/style.css";` at the very top.
 
+### Bug 3.3: Semantic HTTP Status Code Confusion (400 Bad Request vs 422 Unprocessable Content)
+- **Symptom:** Returning HTTP 400 for a cyclic graph or semantic validation failure.
+- **Root Cause:** Not differentiating between JSON syntax/type validation (Zod) and business logic/DAG graph constraints.
+- **Fix:** Return HTTP 400 for malformed JSON or missing required body fields. Return HTTP 422 for semantically invalid graphs (cycles, trigger rule violations, or invalid node configurations).
+
+### Bug 3.4: Route Shadowing in Express (`/flows/:id` overriding `/flows/validate`)
+- **Symptom:** Calling `POST /flows/validate` returns HTTP 404 or routes to the parameterized `:id` handler.
+- **Root Cause:** In Express, route order is strictly first-match. Registering `/:id` before `/validate` causes Express to treat `"validate"` as an `id`.
+- **Fix:** Always declare static sub-routes (`/validate`) before dynamic parameter routes (`/:id`).
+
+### Bug 3.5: Zod Schema Defaulting Masking Incomplete Payloads
+- **Symptom:** Sending `{ invalid: "not a graph" }` passes validation and creates an empty graph instead of failing.
+- **Root Cause:** Using `.default([])` on `nodes` and `edges` fields in `graphSchema`.
+- **Fix:** Require `nodes` and `edges` to be explicitly provided as arrays in `graphSchema`.
+
 ---
 
 ## 4. Execution Engine & Templating Gotchas (Phase 4)
