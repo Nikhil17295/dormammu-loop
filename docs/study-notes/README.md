@@ -15,7 +15,8 @@ Refer to [`docs/team-split.md`](../team-split.md) for full details.
 | [`01-setup-and-infra.md`](./01-setup-and-infra.md) | Docker, PostgreSQL, Redis, Prisma, Express, Vite, CORS | **Both** | Complete |
 | [`02-dag-and-algorithms.md`](./02-dag-and-algorithms.md) | Graph theory, Kahn's algorithm, cycle isolation, readiness | **Nikhil** | Complete |
 | [`architecture-decisions-and-tradeoffs.md`](./architecture-decisions-and-tradeoffs.md) | **Master Defense:** Why this stack vs MongoDB, WebSockets, Kafka, Next.js | **Both** | Complete |
-| [`03-flow-api-and-canvas.md`](./03-flow-api-and-canvas.md) | Flow CRUD API, Zod schemas, React Flow visual editor | **Madhav (API) / Nikhil (Canvas)** | Part B (Canvas) Complete |
+| [`03-flow-api-and-persistence.md`](./03-flow-api-and-persistence.md) | Flow CRUD API, Zod schemas, PostgreSQL persistence, dry-run validation | **Madhav (Part A)** | Complete |
+| [`03-flow-api-and-canvas.md`](./03-flow-api-and-canvas.md) | React Flow visual canvas editor, custom nodes, client-side cycle rejection | **Nikhil (Part B)** | Complete |
 | [`04-execution-engine.md`](./04-execution-engine.md) | In-process runner, safe templating, cascading skips, run history | **Nikhil (Engine) / Madhav (History)** | Phase 4 |
 | [`05-triggers-and-idempotency.md`](./05-triggers-and-idempotency.md) | Webhooks, tokens, idempotency deduplication, `node-cron` | **Madhav** | Phase 5 |
 | [`06-distributed-workers.md`](./06-distributed-workers.md) | Redis + BullMQ, atomic claims, exponential backoff with jitter, DLQ | **Nikhil** | Phase 6 |

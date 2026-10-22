@@ -54,7 +54,7 @@ Keep this file bookmarked: whenever you run into an unexpected error, look here 
 
 ---
 
-## 3. Visual Canvas & React Flow Traps (Phase 3)
+## 3. Visual Canvas & Flow API Traps (Phase 3)
 
 ### Bug 3.1: Self-Loop Connections (`A -> A`)
 - **Symptom:** User drags a connection from a node's output handle directly into its own input handle.
@@ -69,17 +69,32 @@ Keep this file bookmarked: whenever you run into an unexpected error, look here 
 - **Root Cause:** Missing React Flow base stylesheet.
 - **Fix:** Verify `frontend/src/index.css` imports `@import "@xyflow/react/dist/style.css";` at the very top.
 
-### Bug 3.3: Canvas Node Types Recreated on Every Render (Flickering & Focus Loss)
+### Bug 3.3: Semantic HTTP Status Code Confusion (400 Bad Request vs 422 Unprocessable Content)
+- **Symptom:** Returning HTTP 400 for a cyclic graph or semantic validation failure.
+- **Root Cause:** Not differentiating between JSON syntax/type validation (Zod) and business logic/DAG graph constraints.
+- **Fix:** Return HTTP 400 for malformed JSON or missing required body fields. Return HTTP 422 for semantically invalid graphs (cycles, trigger rule violations, or invalid node configurations).
+
+### Bug 3.4: Route Shadowing in Express (`/flows/:id` overriding `/flows/validate`)
+- **Symptom:** Calling `POST /flows/validate` returns HTTP 404 or routes to the parameterized `:id` handler.
+- **Root Cause:** In Express, route order is strictly first-match. Registering `/:id` before `/validate` causes Express to treat `"validate"` as an `id`.
+- **Fix:** Always declare static sub-routes (`/validate`) before dynamic parameter routes (`/:id`).
+
+### Bug 3.5: Zod Schema Defaulting Masking Incomplete Payloads
+- **Symptom:** Sending `{ invalid: "not a graph" }` passes validation and creates an empty graph instead of failing.
+- **Root Cause:** Using `.default([])` on `nodes` and `edges` fields in `graphSchema`.
+- **Fix:** Require `nodes` and `edges` to be explicitly provided as arrays in `graphSchema`.
+
+### Bug 3.6: Canvas Node Types Recreated on Every Render (Flickering & Focus Loss)
 - **Symptom:** Typing into an input field inside an Inspector panel causes inputs to lose focus or nodes to flash on every keystroke.
 - **Root Cause:** Declaring `const nodeTypes = { trigger: TriggerNode, ... }` inline within a React component. React Flow detects a new object reference on every render and unmounts/remounts all canvas nodes.
 - **Fix:** Declare `nodeTypes` **outside** the React component scope or memoize with `useMemo`.
 
-### Bug 3.4: Coordinate Disconnect in Drag & Drop from Palette
+### Bug 3.7: Coordinate Disconnect in Drag & Drop from Palette
 - **Symptom:** Dragging a node card from the left palette and dropping it on the canvas results in the node appearing hundreds of pixels away from where the cursor dropped.
 - **Root Cause:** Raw DOM `event.clientX` and `event.clientY` coordinates are relative to the viewport window and do not account for React Flow's canvas pan and zoom scale.
 - **Fix:** Use React Flow's `screenToFlowPosition({ x: event.clientX, y: event.clientY })` from `useReactFlow()` to convert screen-space pixels into internal graph coordinates.
 
-### Bug 3.5: Attempting to Add Inward Edges to Triggers
+### Bug 3.8: Attempting to Add Inward Edges to Triggers
 - **Symptom:** User tries to wire an HTTP node output into a Trigger node input.
 - **Root Cause:** Triggers represent the root of execution (in-degree 0).
 - **Fix:** Do not render an input `Handle` (`type="target"`) on `TriggerNode` at all, and reject any programmatic connection attempt in `canConnectEdge`.

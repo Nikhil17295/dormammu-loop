@@ -1,4 +1,7 @@
-import { Graph, ValidationError } from '../engine/types';
+// Typed API client functions for Flow persistence and validation
+import { Graph, GraphEdge, GraphNode, NodeType, ValidationError } from '../engine/types';
+
+export type { Graph, GraphEdge, GraphNode, NodeType, ValidationError };
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -18,9 +21,32 @@ export interface Flow {
   updatedAt: string;
 }
 
+// Backward-compatible alias for Flow
+export type FlowRecord = Flow;
+
 export interface ValidationApiResponse {
   valid: boolean;
   errors: ValidationError[];
+}
+
+export type ValidationResult = ValidationApiResponse;
+
+export interface CreateFlowData {
+  name: string;
+  graph: Graph;
+}
+
+export interface UpdateFlowData {
+  name?: string;
+  graph?: Graph;
+}
+
+export interface ApiErrorResponse {
+  error: {
+    code: string;
+    message: string;
+    details?: any[];
+  };
 }
 
 export class ApiError extends Error {
@@ -98,9 +124,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
  */
 export async function fetchFlows(): Promise<FlowSummary[]> {
   try {
-    const res = await fetch(`${API_BASE}/flows`, {
-      headers: { credentials: 'omit' },
-    });
+    const res = await fetch(`${API_BASE}/flows`);
     const data = await handleResponse<any[]>(res);
     return data.map((item) => ({
       id: item.id,
@@ -150,7 +174,7 @@ export async function fetchFlow(id: string): Promise<Flow> {
 /**
  * Create a new flow definition.
  */
-export async function createFlow(data: { name: string; graph: Graph }): Promise<Flow> {
+export async function createFlow(data: CreateFlowData): Promise<Flow> {
   try {
     const res = await fetch(`${API_BASE}/flows`, {
       method: 'POST',
@@ -185,7 +209,7 @@ export async function createFlow(data: { name: string; graph: Graph }): Promise<
  */
 export async function updateFlow(
   id: string,
-  data: { name: string; graph: Graph }
+  data: UpdateFlowData
 ): Promise<Flow> {
   try {
     const res = await fetch(`${API_BASE}/flows/${id}`, {
@@ -206,8 +230,8 @@ export async function updateFlow(
     const index = local.findIndex((f) => f.id === id);
     const updatedFlow: Flow = {
       id,
-      name: data.name,
-      graph: data.graph,
+      name: data.name ?? (index >= 0 ? local[index].name : 'Untitled Workflow'),
+      graph: data.graph ?? (index >= 0 ? local[index].graph : { nodes: [], edges: [] }),
       createdAt: index >= 0 ? local[index].createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -224,16 +248,18 @@ export async function updateFlow(
 /**
  * Delete a flow by ID.
  */
-export async function deleteFlow(id: string): Promise<{ success: boolean }> {
+export async function deleteFlow(
+  id: string
+): Promise<{ success: boolean; message?: string }> {
   try {
     const res = await fetch(`${API_BASE}/flows/${id}`, {
       method: 'DELETE',
     });
-    await handleResponse<{ success: boolean }>(res);
+    const result = await handleResponse<{ success?: boolean; message?: string }>(res);
     // Also remove from local storage if present
     const local = getLocalFlows().filter((f) => f.id !== id);
     saveLocalFlows(local);
-    return { success: true };
+    return { success: true, message: result.message || 'Flow deleted successfully' };
   } catch (err: any) {
     if (err instanceof ApiError) {
       throw err;
@@ -241,7 +267,7 @@ export async function deleteFlow(id: string): Promise<{ success: boolean }> {
     // Network error: remove from local storage
     const local = getLocalFlows().filter((f) => f.id !== id);
     saveLocalFlows(local);
-    return { success: true };
+    return { success: true, message: 'Flow deleted locally' };
   }
 }
 

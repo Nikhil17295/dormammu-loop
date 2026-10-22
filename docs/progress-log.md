@@ -44,7 +44,26 @@ After each phase add a few lines documenting actual implementation progress.
 
 ---
 
-## Phase 3: Visual Canvas Workflow Editor & Client-Side Cycle Rejection (2026-10-22) by Nikhil (Part B)
+## Phase 3 Part A: Flow Persistence API & Graph Validation (2026-10-22) by Madhav
+- **Built:**
+  - Runtime request validation schemas in `backend/src/api/schemas.ts` using Zod for `Flow` create, update, graph structure, and dry-run validation payloads.
+  - Complete RESTful Flow API routes in `backend/src/api/flows.ts` (`GET /flows`, `POST /flows`, `GET /flows/:id`, `PUT /flows/:id`, `DELETE /flows/:id`, and `POST /flows/validate`).
+  - Integrated pure DAG validation (`validateGraph`) into flow creation and updates, rejecting cyclic graphs with semantic HTTP 422 Unprocessable Content.
+  - Mounted routes onto Express at `/flows` in `backend/src/api/app.ts`.
+  - Comprehensive Vitest + Supertest integration test suite in `backend/tests/flows.test.ts` with 20 integration tests verifying CRUD, cycle rejection, cascade deletion, and error codes (54 total backend tests passing).
+  - Strongly typed client API functions in `frontend/src/api/flows.ts` (`fetchFlows`, `fetchFlow`, `createFlow`, `updateFlow`, `deleteFlow`, `validateGraphApi`).
+  - Study notes guide in `docs/study-notes/03-flow-api-and-persistence.md` with viva Q&As, PowerShell debugging toolkit, and beginner analogies.
+- **What broke and how it was fixed:**
+  - When testing `POST /flows/validate` with `{ invalid: "not a graph" }`, the test expected HTTP 400 but received HTTP 200 because `nodes` and `edges` were configured with `.default([])` in Zod; fixed by requiring explicit array types in `graphSchema`.
+  - Ensured static route `POST /flows/validate` is registered before dynamic `:id` routes to prevent Express route shadowing.
+- **What I learned:**
+  - Why runtime validation (Zod) is essential in Node.js despite having compile-time TypeScript types.
+  - The semantic distinction between HTTP 400 (syntactical client error) and HTTP 422 (semantic/DAG domain constraint violation).
+  - How Prisma foreign key relations with `onDelete: Cascade` keep PostgreSQL clean when workflows are deleted.
+
+---
+
+## Phase 3 Part B: Visual Canvas Workflow Editor & Client-Side Cycle Rejection (2026-10-22) by Nikhil
 - **Built:**
   - Pure client-side graph engine in `frontend/src/engine/` (`types.ts`, `graph.ts`, `index.ts`) providing zero-latency in-browser Kahn's topological sort, DFS cycle isolation, validation, and real-time edge connection validation (`canConnectEdge`).
   - 5 custom React Flow nodes (`trigger`, `http`, `transform`, `delay`, `output`) styled with Tailwind CSS dark themes, custom handles, status icons, and configuration previews.
@@ -66,4 +85,4 @@ After each phase add a few lines documenting actual implementation progress.
   - How to project browser viewport drag coordinates into canvas internal space using `screenToFlowPosition`.
   - How client-side DFS back-edge detection provides instant UX feedback before edges are committed to React state.
 - **Still unclear / Next focus:**
-  - Madhav's Part A backend flow persistence API (`backend/src/api/flows.ts`, Zod schemas, integration tests) to connect canvas saves directly to PostgreSQL.
+  - Phase 4: Nikhil builds the topological execution engine runner with cascading skips and Madhav builds the run history API and UI.
