@@ -86,3 +86,33 @@ After each phase add a few lines documenting actual implementation progress.
   - How client-side DFS back-edge detection provides instant UX feedback before edges are committed to React state.
 - **Still unclear / Next focus:**
   - Phase 4: Nikhil builds the topological execution engine runner with cascading skips and Madhav builds the run history API and UI.
+
+---
+
+## Phase 4 Part A: In-Process Execution Engine, Modular Executors, & Safe Templating (2026-10-23) by Nikhil
+- **Built:**
+  - Safe functional variable templating engine in `backend/src/engine/templating.ts` (`resolveTemplate`, `getByPath`) with zero `eval()` / `new Function()`, nested path traversal, array indexing, and prototype-pollution guards (`__proto__`, `constructor`, `prototype`).
+  - Modular node executors in `backend/src/executors/` for all 5 node types:
+    - `trigger.ts`: extracts trigger payload.
+    - `transform.ts`: evaluates template expressions and structured JSON mappings.
+    - `http.ts`: executes HTTP requests via native `fetch`, resolves templated URLs and headers, auto-parses JSON, enforces HTTP error handling, and bounds timeouts with `AbortController` (max 30s).
+    - `delay.ts`: pauses execution cleanly via timer promise, bounded to a 60-second safety cap.
+    - `output.ts`: aggregates outputs and resolves workflow final results.
+    - `index.ts`: type-safe registry `getExecutor(type)`.
+  - Sensitive data redaction utility in `backend/src/executors/masking.ts` (`maskSensitiveData`) redacting authorization headers, passwords, secrets, and API keys with `"[REDACTED]"`.
+  - In-process asynchronous DAG runner in `backend/src/engine/runner.ts`:
+    - `createRun`: creates `Run` (status `'pending'`) and initializes all `NodeRun` records with unique idempotency keys (`${runId}:${nodeId}`).
+    - `executeRun`: resolves `readyNodes(graph, statusByNodeId)` iteratively, executes concurrent branches in parallel via `Promise.allSettled`, writes step-by-step inputs, outputs, timestamps, and `LogLine` records to PostgreSQL, and performs cascading skips for all downstream descendants of failed nodes.
+    - `waitForRun`: helper for awaiting background execution.
+  - Execution trigger REST endpoint in `backend/src/api/flows.ts` (`POST /flows/:id/run`) accepting optional trigger payload, validating the DAG graph, and responding immediately with `HTTP 202 Accepted` (`{ runId, status: 'pending' }`).
+  - Comprehensive automated test suites across `templating.test.ts` (12 tests), `executors.test.ts` (14 tests), and `engine.test.ts` (8 tests) bringing total backend passing tests to 88 (all passing).
+  - Study Guide `docs/study-notes/04-execution-engine.md` with beginner analogies, architecture trade-offs, PowerShell debugging commands, and 5 viva questions & answers.
+- **What broke and how it was fixed:**
+  - Vitest parallel multi-threading caused integration test suites (`flows.test.ts` and `engine.test.ts`) to collide against the shared PostgreSQL database; added `backend/vitest.config.ts` with `fileParallelism: false` to ensure serial test execution.
+  - Fast test teardown deleted database rows while background execution promises were still resolving, triggering Prisma `P2025: Record to update not found`; added explicit `P2025` error handling in `runner.ts` and `waitForRun` synchronization in test cases.
+- **What I learned:**
+  - Why `Promise.allSettled` is mandatory for parallel branch execution so one failing branch doesn't abandon remaining healthy branches in an unobserved state.
+  - How cascading skips keep DAG state consistent by actively transitioning unreachable child nodes to `'skipped'` rather than leaving them in `'pending'`.
+  - How prototype-pollution vulnerabilities occur in recursive object traversal and how blacklisting `__proto__` and `constructor` secures property access.
+- **Still unclear / Next focus:**
+  - Madhav builds Phase 4 Part B (Run history API and frontend Run Inspector / Detail pages).

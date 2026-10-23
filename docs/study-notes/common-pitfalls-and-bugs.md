@@ -122,6 +122,15 @@ Keep this file bookmarked: whenever you run into an unexpected error, look here 
 - **Symptom:** If Node A fails, Node B (which depends on A) stays stuck in `'pending'` forever, and the workflow never completes.
 - **Fix:** Call `descendantsOf(graph, failedNodeId)` and atomically mark every downstream child node as `'skipped'`.
 
+### Bug 4.4: Prototype Pollution in Nested Object Property Access
+- **Symptom:** A template accesses `{{ trigger.__proto__.polluted }}` or `{{ trigger.constructor }}`, potentially corrupting global JavaScript object prototypes.
+- **Fix:** In `templating.ts`, blacklist property tokens `['__proto__', 'prototype', 'constructor']` and return `undefined` immediately when encountered.
+
+### Bug 4.5: Parallel Integration Test Database Collisions
+- **Symptom:** Running `npm test` causes intermittent foreign key violations (`P2003`) or record count mismatches when running multiple test suites at once.
+- **Root Cause:** Vitest executes test files concurrently across multiple worker processes by default. Separate test files running `deleteMany()` collide against the shared PostgreSQL database.
+- **Fix:** Set `fileParallelism: false` in `backend/vitest.config.ts` so integration test suites execute sequentially.
+
 ---
 
 ## 5. Webhooks & Idempotency Edge Cases (Phase 5)
