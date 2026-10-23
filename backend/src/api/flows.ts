@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { validateGraph } from "../engine/graph";
 import { Graph } from "../engine/types";
+import { createRun } from "../engine/runner";
 import {
   createFlowSchema,
   updateFlowSchema,
@@ -254,6 +255,59 @@ flowsRouter.delete("/:id", async (req: Request, res: Response) => {
       error: {
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to delete flow",
+      },
+    });
+  }
+});
+
+/**
+ * POST /flows/:id/run
+ * Executes a workflow run in the in-process execution engine.
+ * Accepts optional JSON trigger payload in request body.
+ * Responds immediately with HTTP 202: { runId: run.id, status: 'pending' }.
+ */
+flowsRouter.post("/:id/run", async (req: Request, res: Response) => {
+  try {
+    const flow = await prisma.flow.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!flow) {
+      return res.status(404).json({
+        error: {
+          code: "NOT_FOUND",
+          message: `Flow with id "${req.params.id}" not found`,
+        },
+      });
+    }
+
+    const graph = flow.graph as unknown as Graph;
+    const validationErrors = validateGraph(graph);
+
+    if (validationErrors.length > 0) {
+      return res.status(422).json({
+        error: {
+          code: "INVALID_GRAPH",
+          message: "Workflow graph contains structural or configuration errors",
+          details: validationErrors,
+        },
+      });
+    }
+
+    const payload = req.body && typeof req.body === "object" ? req.body : {};
+    const run = await createRun(flow.id, payload, "manual");
+
+    return res.status(202).json({
+      runId: run.id,
+      id: run.id,
+      status: run.status,
+    });
+  } catch (err) {
+    console.error(`Error initiating run for flow ${req.params.id}:`, err);
+    return res.status(500).json({
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to initiate workflow run",
       },
     });
   }
