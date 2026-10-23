@@ -7,6 +7,8 @@ export const OutputNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const name = (data?.name as string) || 'Output Sink';
   const config = (data?.config as Record<string, any>) || {};
   const key = (config.key as string) || (config.name as string) || 'result';
+  const status = data?.status as string | undefined;
+  const durationMs = data?.durationMs as number | undefined;
 
   return (
     <NodeCard
@@ -14,6 +16,8 @@ export const OutputNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       type="output"
       name={name}
       selected={selected}
+      status={status}
+      durationMs={durationMs}
       icon={<CheckSquare className="w-3.5 h-3.5 text-rose-400" />}
       theme={{
         border: 'border-rose-500/30',

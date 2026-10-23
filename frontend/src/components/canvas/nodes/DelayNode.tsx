@@ -7,6 +7,8 @@ export const DelayNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const name = (data?.name as string) || 'Delay';
   const config = (data?.config as Record<string, any>) || {};
   const seconds = config.seconds ?? 5;
+  const status = data?.status as string | undefined;
+  const durationMs = data?.durationMs as number | undefined;
 
   return (
     <NodeCard
@@ -14,6 +16,8 @@ export const DelayNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       type="delay"
       name={name}
       selected={selected}
+      status={status}
+      durationMs={durationMs}
       icon={<Clock className="w-3.5 h-3.5 text-purple-400" />}
       theme={{
         border: 'border-purple-500/30',

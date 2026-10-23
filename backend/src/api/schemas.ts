@@ -74,3 +74,15 @@ export const validateGraphPayloadSchema = z.union([
 
 export type CreateFlowInput = z.infer<typeof createFlowSchema>;
 export type UpdateFlowInput = z.infer<typeof updateFlowSchema>;
+
+/**
+ * Schema for filtering and paginating workflow runs in GET /runs.
+ */
+export const runQuerySchema = z.object({
+  flowId: z.string().uuid().optional(),
+  status: z.enum(["pending", "running", "success", "failed"]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type RunQueryInput = z.infer<typeof runQuerySchema>;

@@ -115,4 +115,38 @@ After each phase add a few lines documenting actual implementation progress.
   - How cascading skips keep DAG state consistent by actively transitioning unreachable child nodes to `'skipped'` rather than leaving them in `'pending'`.
   - How prototype-pollution vulnerabilities occur in recursive object traversal and how blacklisting `__proto__` and `constructor` secures property access.
 - **Still unclear / Next focus:**
-  - Madhav builds Phase 4 Part B (Run history API and frontend Run Inspector / Detail pages).
+  - Completed! Ready for Phase 4 Part B.
+
+---
+
+## Phase 4 Part B: Run History API & Frontend Visual Run Inspector (2026-10-23) by Madhav
+- **Built:**
+  - Runtime request validation schemas in `backend/src/api/schemas.ts` (`runQuerySchema`) for filtering and paginating runs by `flowId`, `status`, `limit`, and `offset`.
+  - Complete RESTful Run History routes in `backend/src/api/runs.ts`:
+    - `GET /runs`: lists past workflow runs with query filters and `X-Total-Count` header, sorted newest first.
+    - `GET /runs/:id`: returns full run summary, overall duration, flow graph definition, and array of all `NodeRun` records with execution times and statuses.
+    - `GET /runs/:id/nodes/:nodeId`: detailed record for an individual node run with input JSON, output JSON, error message, duration, and associated `LogLine` entries.
+  - Mounted `runsRouter` onto Express at `/runs` in `backend/src/api/app.ts`.
+  - Comprehensive integration test suite in `backend/tests/runs.test.ts` with 11 passing tests bringing backend test total to 99 (all passing).
+  - Strongly typed client API functions in `frontend/src/api/runs.ts` (`fetchRuns`, `fetchRun`, `fetchNodeRun`, `triggerRun`).
+  - Parameterized Run Modal (`frontend/src/components/canvas/RunModal.tsx`) with JSON syntax validation, prettify helper, and sample payload inserter.
+  - Interactive Run button in `CanvasActionBar.tsx` and `FlowEditorPage.tsx`: automatically saves unsaved workflows, launches execution, and redirects directly to `/runs/:id`.
+  - Enhanced custom React Flow node cards (`NodeCard.tsx` and all 5 node types) with dynamic execution status borders and badges (pulsing blue for running, emerald green for success, rose red for failed, muted gray for skipped).
+  - Visual Run Inspector Page (`frontend/src/pages/RunDetailPage.tsx`):
+    - Read-only React Flow canvas rendering workflow DAG with live node status badges and edge animation.
+    - Smart polling loop fetching `GET /runs/:id` every 1.5s while active, cleanly stopping on `'success'` or `'failed'` terminal state.
+    - Slide-over Node Execution Drawer with formatted JSON viewers for input/output, error banner, and timestamped Execution Log terminal with level filters (`ALL`, `INFO`, `WARN`, `ERROR`).
+    - Re-Run button allowing quick re-execution with custom payload.
+  - Run History List Page (`frontend/src/pages/RunListPage.tsx`) with execution metric cards (Total, Success, Running, Failed), search bar, status filter pills, auto-refresh toggle (3s), and detailed runs table.
+  - Multi-page routing integration in `frontend/src/App.tsx` (`/runs`, `/runs/:id`) and navigation links across all headers.
+  - Frontend Vitest automated test suite in `frontend/src/tests/runsApi.test.ts` bringing total frontend tests to 20 (all passing).
+  - Study Guide `docs/study-notes/04-run-history-and-inspector.md` with file breakdowns, PowerShell debugging toolkit, and 5 viva Q&As.
+- **What broke and how it was fixed:**
+  - Vitest failed on template resolution during end-to-end run test because the test used `{{ trig.name }}` instead of `{{ trigger.name }}`; updated template to point to valid context root.
+  - TypeScript compilation failed on modal height overflow and unused icon imports; made `RunModal` compact with `max-h-[90vh]` and cleaned up unused lucide icons.
+- **What I learned:**
+  - Why polling must stop when reaching terminal states (`success` or `failed`) to avoid leaking timers and wasting server cycles.
+  - How merging backend `NodeRun` records into React Flow canvas nodes allows seamless visualization of DAG execution state.
+  - The power of composite idempotency keys (`${runId}:${nodeId}`) in guaranteeing step-level data isolation.
+- **Still unclear / Next focus:**
+  - Ready for Phase 5: Webhook and cron triggers.

@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Workflow,
   Sparkles,
+  History,
 } from 'lucide-react';
 
 export const FlowListPage: React.FC = () => {
@@ -79,6 +80,15 @@ export const FlowListPage: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3">
+          <button
+            onClick={() => navigate('/runs')}
+            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition"
+            title="View Workflow Run History"
+          >
+            <History className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">Run History</span>
+          </button>
+
           <button
             onClick={() => navigate('/health')}
             className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition"
@@ -222,7 +232,19 @@ export const FlowListPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/runs?flowId=${flow.id}`);
+                      }}
+                      className="flex items-center space-x-1 px-2 py-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-indigo-300 transition text-[11px]"
+                      title="View Runs for this Workflow"
+                    >
+                      <History className="w-3 h-3" />
+                      <span>Runs</span>
+                    </button>
+
                     <button
                       onClick={(e) => handleDelete(e, flow.id, flow.name)}
                       disabled={deletingId === flow.id}

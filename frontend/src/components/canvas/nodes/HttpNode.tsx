@@ -8,6 +8,8 @@ export const HttpNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const config = (data?.config as Record<string, any>) || {};
   const method = (config.method as string) || 'GET';
   const url = (config.url as string) || 'https://api.example.com';
+  const status = data?.status as string | undefined;
+  const durationMs = data?.durationMs as number | undefined;
 
   const methodColors: Record<string, string> = {
     GET: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
@@ -22,6 +24,8 @@ export const HttpNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       type="http"
       name={name}
       selected={selected}
+      status={status}
+      durationMs={durationMs}
       icon={<Globe className="w-3.5 h-3.5 text-blue-400" />}
       theme={{
         border: 'border-blue-500/30',

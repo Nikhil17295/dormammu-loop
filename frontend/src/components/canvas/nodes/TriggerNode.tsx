@@ -7,6 +7,8 @@ export const TriggerNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const name = (data?.name as string) || 'Manual Trigger';
   const config = (data?.config as Record<string, any>) || {};
   const triggerType = config.type || 'manual';
+  const status = data?.status as string | undefined;
+  const durationMs = data?.durationMs as number | undefined;
 
   return (
     <NodeCard
@@ -14,6 +16,8 @@ export const TriggerNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       type="trigger"
       name={name}
       selected={selected}
+      status={status}
+      durationMs={durationMs}
       icon={<Zap className="w-3.5 h-3.5 text-emerald-400" />}
       theme={{
         border: 'border-emerald-500/30',

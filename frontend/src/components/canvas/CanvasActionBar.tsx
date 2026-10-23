@@ -19,8 +19,10 @@ interface CanvasActionBarProps {
   onSave: () => void;
   onLoadTemplate: (templateKey: 'linear' | 'diamond' | 'delayed' | 'empty') => void;
   onBack: () => void;
+  onRun?: () => void;
   isSaving: boolean;
   isValidating: boolean;
+  isExecuting?: boolean;
   validationResult: { valid: boolean; errors: ValidationError[] } | null;
   onDismissValidation: () => void;
 }
@@ -32,8 +34,10 @@ export const CanvasActionBar: React.FC<CanvasActionBarProps> = ({
   onSave,
   onLoadTemplate,
   onBack,
+  onRun,
   isSaving,
   isValidating,
+  isExecuting = false,
   validationResult,
   onDismissValidation,
 }) => {
@@ -156,22 +160,20 @@ export const CanvasActionBar: React.FC<CanvasActionBarProps> = ({
             <span>Save</span>
           </button>
 
-          {/* Run Button (Phase 4 disabled placeholder) */}
-          <div className="relative group">
-            <button
-              disabled
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700/40 text-emerald-300/60 border border-emerald-600/30 cursor-not-allowed"
-              title="Execution enabled in Phase 4"
-            >
-              <Play className="w-3.5 h-3.5 opacity-60" />
-              <span>Run</span>
-            </button>
-
-            {/* Hover Tooltip */}
-            <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300 text-center shadow-xl">
-              Execution enabled in Phase 4 (Engine Runner)
-            </div>
-          </div>
+          {/* Run Button (Phase 4 In-Process Runner) */}
+          <button
+            onClick={onRun}
+            disabled={isSaving || isValidating || isExecuting || !onRun}
+            className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition disabled:opacity-50"
+            title="Execute workflow run"
+          >
+            {isExecuting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-white" />
+            )}
+            <span>Run</span>
+          </button>
         </div>
       </header>
 

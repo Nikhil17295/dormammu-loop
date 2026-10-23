@@ -8,6 +8,8 @@ export const TransformNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const config = (data?.config as Record<string, any>) || {};
   const template = (config.template as string) || '';
   const mapping = config.mapping;
+  const status = data?.status as string | undefined;
+  const durationMs = data?.durationMs as number | undefined;
 
   return (
     <NodeCard
@@ -15,6 +17,8 @@ export const TransformNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       type="transform"
       name={name}
       selected={selected}
+      status={status}
+      durationMs={durationMs}
       icon={<Sliders className="w-3.5 h-3.5 text-amber-400" />}
       theme={{
         border: 'border-amber-500/30',

@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { flowsRouter } from "./flows";
+import { runsRouter } from "./runs";
 
 export const app = express();
 
@@ -23,4 +24,7 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // Flow persistence and validation routes
 app.use("/flows", flowsRouter);
+
+// Workflow execution run history routes
+app.use("/runs", runsRouter);
 

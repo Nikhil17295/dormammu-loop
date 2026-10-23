@@ -131,6 +131,21 @@ Keep this file bookmarked: whenever you run into an unexpected error, look here 
 - **Root Cause:** Vitest executes test files concurrently across multiple worker processes by default. Separate test files running `deleteMany()` collide against the shared PostgreSQL database.
 - **Fix:** Set `fileParallelism: false` in `backend/vitest.config.ts` so integration test suites execute sequentially.
 
+### Bug 4.6: Memory Leaks from Unbounded Polling Loops in React Components
+- **Symptom:** After inspecting a running workflow and navigating away, background HTTP network requests continue firing every 1.5s in the browser, wasting CPU and network bandwidth.
+- **Root Cause:** Setting `setInterval` without returning a cleanup function in `useEffect`, or polling indefinitely without checking for terminal statuses (`success` or `failed`).
+- **Fix:** In `RunDetailPage.tsx`, monitor `run.status`. If `status === 'success' || status === 'failed'`, return early and do not schedule the timer. Always return `() => clearInterval(interval)` from `useEffect`.
+
+### Bug 4.7: Executing Brand New Workflows Before Database Persistence
+- **Symptom:** Clicking "Run" on `/flows/new` fails with `HTTP 404: Flow with id "new" not found`.
+- **Root Cause:** The workflow only existed in local React state on the canvas and was never saved to PostgreSQL prior to execution.
+- **Fix:** In `FlowEditorPage.tsx`, `handleRunFlow` checks if the flow is unsaved (`id === 'new'`). If so, it automatically calls `createFlow` first, obtains the generated UUID, and then triggers `POST /flows/:id/run`.
+
+### Bug 4.8: React Flow Dynamic Status Styling Without Re-Mounting
+- **Symptom:** Node cards do not update their visual status badges when new polling data arrives from the server.
+- **Root Cause:** Node definitions inside React Flow's state were static, preventing re-rendering of internal card status props.
+- **Fix:** Compute `nodes` dynamically with `useMemo` based on `[run?.flowGraph?.nodes, nodeRunMap]`, injecting `data.status = nodeRun?.status` and `data.durationMs = nodeRun?.durationMs`.
+
 ---
 
 ## 5. Webhooks & Idempotency Edge Cases (Phase 5)

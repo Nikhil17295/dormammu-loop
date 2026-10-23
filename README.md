@@ -25,7 +25,7 @@ A visual workflow builder. You draw a graph of nodes (trigger, transform, HTTP r
 | 1 | Setup, scaffold, database | both | done (verified) |
 | 2 | Graph logic: validation, cycle detection, topological order | Nikhil | done (verified) |
 | 3 | Flow API + visual editor | Madhav (API), Nikhil (editor) | done (verified) |
-| 4 | Execution engine + run history | Nikhil (engine), Madhav (history) | not started |
+| 4 | Execution engine + run history | Nikhil (engine), Madhav (history) | done (verified) |
 | 5 | Webhook + cron triggers | Madhav | not started |
 | 6 | BullMQ workers, retries, DLQ, idempotency, heartbeats | Nikhil | not started |
 | 7 | SSE live streaming | Madhav | not started |

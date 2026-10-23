@@ -19,6 +19,7 @@ import { NodePalette } from './NodePalette';
 import { InspectorPanel } from './InspectorPanel';
 import { CanvasActionBar } from './CanvasActionBar';
 import { ToastContainer, ToastMessage } from './Toast';
+import { RunModal } from './RunModal';
 import { Graph, GraphNode, NodeType, ValidationError } from '../../engine/types';
 import { canConnectEdge, validateGraph } from '../../engine/graph';
 import { validateGraphApi } from '../../api/flows';
@@ -29,7 +30,9 @@ interface WorkflowCanvasProps {
   onFlowNameChange: (name: string) => void;
   onSaveFlow: (graph: Graph) => Promise<void>;
   onBack: () => void;
+  onRunFlow?: (graph: Graph, payload: any) => Promise<void>;
   isSaving: boolean;
+  isExecuting?: boolean;
 }
 
 // Starter template graph definitions
@@ -172,7 +175,9 @@ const WorkflowCanvasInner: React.FC<WorkflowCanvasProps> = ({
   onFlowNameChange,
   onSaveFlow,
   onBack,
+  onRunFlow,
   isSaving,
+  isExecuting = false,
 }) => {
   // Convert Graph to React Flow Node & Edge format
   const convertGraphToFlow = (graph: Graph) => {
@@ -207,6 +212,7 @@ const WorkflowCanvasInner: React.FC<WorkflowCanvasProps> = ({
     errors: ValidationError[];
   } | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [isRunModalOpen, setIsRunModalOpen] = useState<boolean>(false);
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
@@ -477,6 +483,35 @@ const WorkflowCanvasInner: React.FC<WorkflowCanvasProps> = ({
     }
   }, [getCurrentGraph, onSaveFlow, flowName, addToast]);
 
+  const handleOpenRunModal = useCallback(() => {
+    const graph = getCurrentGraph();
+    const validationErrors = validateGraph(graph);
+    if (validationErrors.length > 0) {
+      setValidationResult({ valid: false, errors: validationErrors });
+      addToast(
+        'error',
+        'Cannot Run Invalid Graph',
+        'Please fix structural errors and cycles before running.'
+      );
+      return;
+    }
+    setIsRunModalOpen(true);
+  }, [getCurrentGraph, addToast]);
+
+  const handleExecuteRun = useCallback(
+    async (payload: any) => {
+      if (!onRunFlow) return;
+      const graph = getCurrentGraph();
+      try {
+        await onRunFlow(graph, payload);
+        setIsRunModalOpen(false);
+      } catch (err: any) {
+        addToast('error', 'Run Launch Failed', err.message || 'Failed to trigger run.');
+      }
+    },
+    [onRunFlow, getCurrentGraph, addToast]
+  );
+
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const selectedGraphNode: GraphNode | null = selectedNode
     ? {
@@ -497,8 +532,10 @@ const WorkflowCanvasInner: React.FC<WorkflowCanvasProps> = ({
         onSave={handleSave}
         onLoadTemplate={handleLoadTemplate}
         onBack={onBack}
+        onRun={onRunFlow ? handleOpenRunModal : undefined}
         isSaving={isSaving}
         isValidating={isValidating}
+        isExecuting={isExecuting}
         validationResult={validationResult}
         onDismissValidation={() => setValidationResult(null)}
       />
@@ -565,6 +602,15 @@ const WorkflowCanvasInner: React.FC<WorkflowCanvasProps> = ({
 
         {/* Toast System */}
         <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+        {/* Run Modal */}
+        <RunModal
+          isOpen={isRunModalOpen}
+          flowName={flowName}
+          onClose={() => setIsRunModalOpen(false)}
+          onRun={handleExecuteRun}
+          isRunning={isExecuting}
+        />
       </div>
     </div>
   );

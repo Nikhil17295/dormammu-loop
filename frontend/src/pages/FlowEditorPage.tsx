@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchFlow, createFlow, updateFlow, Flow } from '../api/flows';
+import { triggerRun } from '../api/runs';
 import { WorkflowCanvas, TEMPLATES } from '../components/canvas/WorkflowCanvas';
 import { Graph } from '../engine/types';
 import { RefreshCw, AlertCircle, ArrowLeft } from 'lucide-react';
@@ -17,6 +18,7 @@ export const FlowEditorPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(!isNew);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isExecuting, setIsExecuting] = useState<boolean>(false);
 
   useEffect(() => {
     if (isNew) {
@@ -72,6 +74,36 @@ export const FlowEditorPage: React.FC = () => {
     }
   };
 
+  const handleRunFlow = async (graph: Graph, payload: any): Promise<void> => {
+    setIsExecuting(true);
+    try {
+      let flowIdToRun = flow?.id;
+      // If the workflow is new, save it first to persist into database
+      if (isNew || !flowIdToRun || flowIdToRun === 'new') {
+        const created = await createFlow({
+          name: flowName.trim() || 'Untitled Workflow',
+          graph,
+        });
+        setFlow(created);
+        flowIdToRun = created.id;
+        navigate(`/flows/${created.id}`, { replace: true });
+      } else {
+        // Persist latest graph updates before running
+        await updateFlow(flowIdToRun, {
+          name: flowName.trim() || 'Untitled Workflow',
+          graph,
+        });
+      }
+
+      // Trigger execution runner
+      const runRes = await triggerRun(flowIdToRun, payload);
+      // Navigate directly to the Run Detail page to watch execution proceed
+      navigate(`/runs/${runRes.runId}`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400">
@@ -108,8 +140,10 @@ export const FlowEditorPage: React.FC = () => {
         flowName={flowName}
         onFlowNameChange={setFlowName}
         onSaveFlow={handleSaveFlow}
+        onRunFlow={handleRunFlow}
         onBack={() => navigate('/')}
         isSaving={isSaving}
+        isExecuting={isExecuting}
       />
     </div>
   );
