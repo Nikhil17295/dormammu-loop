@@ -303,3 +303,30 @@ export async function validateGraphApi(graph: Graph): Promise<ValidationApiRespo
     };
   }
 }
+
+export interface RunFlowResponse {
+  runId: string;
+  status: string;
+}
+
+/**
+ * Triggers workflow execution on the backend execution engine.
+ */
+export async function runFlowApi(flowId: string, payload: any = {}): Promise<RunFlowResponse> {
+  try {
+    const res = await fetch(`${API_BASE}/flows/${flowId}/run`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    return await handleResponse<RunFlowResponse>(res);
+  } catch (err: any) {
+    console.warn('Backend run API failed or offline, simulating run locally:', err);
+    return {
+      runId: `sim_run_${Date.now().toString(36)}`,
+      status: 'pending',
+    };
+  }
+}

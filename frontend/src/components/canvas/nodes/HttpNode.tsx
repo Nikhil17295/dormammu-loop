@@ -2,12 +2,14 @@ import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Globe } from 'lucide-react';
 import { NodeCard } from './NodeCard';
+import { NodeStatus } from '../../../engine/types';
 
 export const HttpNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const name = (data?.name as string) || 'HTTP Request';
   const config = (data?.config as Record<string, any>) || {};
   const method = (config.method as string) || 'GET';
   const url = (config.url as string) || 'https://api.example.com';
+  const status = data?.status as NodeStatus | undefined;
 
   const methodColors: Record<string, string> = {
     GET: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
@@ -21,6 +23,7 @@ export const HttpNode: React.FC<NodeProps> = ({ id, data, selected }) => {
       id={id}
       type="http"
       name={name}
+      status={status}
       selected={selected}
       icon={<Globe className="w-3.5 h-3.5 text-blue-400" />}
       theme={{
