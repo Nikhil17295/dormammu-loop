@@ -2,18 +2,21 @@ import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Sliders } from 'lucide-react';
 import { NodeCard } from './NodeCard';
+import { NodeStatus } from '../../../engine/types';
 
 export const TransformNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const name = (data?.name as string) || 'Transform';
   const config = (data?.config as Record<string, any>) || {};
   const template = (config.template as string) || '';
   const mapping = config.mapping;
+  const status = data?.status as NodeStatus | undefined;
 
   return (
     <NodeCard
       id={id}
       type="transform"
       name={name}
+      status={status}
       selected={selected}
       icon={<Sliders className="w-3.5 h-3.5 text-amber-400" />}
       theme={{

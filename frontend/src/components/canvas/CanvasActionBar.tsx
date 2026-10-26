@@ -17,6 +17,8 @@ interface CanvasActionBarProps {
   onFlowNameChange: (name: string) => void;
   onValidate: () => void;
   onSave: () => void;
+  onRun: () => void;
+  isRunning?: boolean;
   onLoadTemplate: (templateKey: 'linear' | 'diamond' | 'delayed' | 'empty') => void;
   onBack: () => void;
   isSaving: boolean;
@@ -30,6 +32,8 @@ export const CanvasActionBar: React.FC<CanvasActionBarProps> = ({
   onFlowNameChange,
   onValidate,
   onSave,
+  onRun,
+  isRunning = false,
   onLoadTemplate,
   onBack,
   isSaving,
@@ -129,7 +133,7 @@ export const CanvasActionBar: React.FC<CanvasActionBarProps> = ({
           {/* Validate Button */}
           <button
             onClick={onValidate}
-            disabled={isValidating}
+            disabled={isValidating || isRunning}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
             title="Validate workflow DAG structure & configs"
           >
@@ -144,7 +148,7 @@ export const CanvasActionBar: React.FC<CanvasActionBarProps> = ({
           {/* Save Button */}
           <button
             onClick={onSave}
-            disabled={isSaving}
+            disabled={isSaving || isRunning}
             className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition disabled:opacity-50"
             title="Save workflow definition to database"
           >
@@ -156,22 +160,20 @@ export const CanvasActionBar: React.FC<CanvasActionBarProps> = ({
             <span>Save</span>
           </button>
 
-          {/* Run Button (Phase 4 disabled placeholder) */}
-          <div className="relative group">
-            <button
-              disabled
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700/40 text-emerald-300/60 border border-emerald-600/30 cursor-not-allowed"
-              title="Execution enabled in Phase 4"
-            >
-              <Play className="w-3.5 h-3.5 opacity-60" />
-              <span>Run</span>
-            </button>
-
-            {/* Hover Tooltip */}
-            <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block w-48 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300 text-center shadow-xl">
-              Execution enabled in Phase 4 (Engine Runner)
-            </div>
-          </div>
+          {/* Run Button */}
+          <button
+            onClick={onRun}
+            disabled={isRunning || isSaving || isValidating}
+            className="flex items-center space-x-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition disabled:opacity-50 cursor-pointer"
+            title="Execute workflow run"
+          >
+            {isRunning ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
+            <span>{isRunning ? 'Running...' : 'Run'}</span>
+          </button>
         </div>
       </header>
 

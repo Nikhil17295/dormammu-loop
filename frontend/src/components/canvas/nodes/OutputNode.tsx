@@ -2,17 +2,20 @@ import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { CheckSquare } from 'lucide-react';
 import { NodeCard } from './NodeCard';
+import { NodeStatus } from '../../../engine/types';
 
 export const OutputNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const name = (data?.name as string) || 'Output Sink';
   const config = (data?.config as Record<string, any>) || {};
   const key = (config.key as string) || (config.name as string) || 'result';
+  const status = data?.status as NodeStatus | undefined;
 
   return (
     <NodeCard
       id={id}
       type="output"
       name={name}
+      status={status}
       selected={selected}
       icon={<CheckSquare className="w-3.5 h-3.5 text-rose-400" />}
       theme={{

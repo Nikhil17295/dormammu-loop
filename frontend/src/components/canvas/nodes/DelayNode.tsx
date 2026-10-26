@@ -2,17 +2,20 @@ import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Clock } from 'lucide-react';
 import { NodeCard } from './NodeCard';
+import { NodeStatus } from '../../../engine/types';
 
 export const DelayNode: React.FC<NodeProps> = ({ id, data, selected }) => {
   const name = (data?.name as string) || 'Delay';
   const config = (data?.config as Record<string, any>) || {};
   const seconds = config.seconds ?? 5;
+  const status = data?.status as NodeStatus | undefined;
 
   return (
     <NodeCard
       id={id}
       type="delay"
       name={name}
+      status={status}
       selected={selected}
       icon={<Clock className="w-3.5 h-3.5 text-purple-400" />}
       theme={{
